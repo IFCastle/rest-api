@@ -19,6 +19,9 @@
                     "rest_api"
                 ]
             }
+        },
+        "branch-alias": {
+            "dev-main": "1.0.x-dev"
         }
     },
     "autoload": {
@@ -41,5 +44,21 @@
         "phpunit/phpunit": "^11.3",
         "ifcastle/codestyle": "^0.1",
         "phpstan/phpstan": "^1.12"
+    },
+    "extra": {
+        "ifcastle-installer": {
+            "package": {
+                "name": "rest_api",
+                "bootloaders": [
+                    "IfCastle\\RestApi\\Bootloader"
+                ],
+                "tags": [
+                    "rest_api"
+                ]
+            }
+        },
+        "branch-alias": {
+            "dev-main": "0.6.x-dev"
+        }
     }
 }
