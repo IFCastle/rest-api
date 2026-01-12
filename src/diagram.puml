@@ -1,0 +1,75 @@
+@startuml package-related-diagram
+skinparam linetype ortho
+  package IfCastle.RestApi as RestApi {
+  }
+
+  package IfCastle #DDDDDD {
+    package TypeDefinitions #DDDDDD {
+      package NativeSerialization #DDDDDD {
+      }
+      package Value #DDDDDD {
+      }
+    }
+    package Application #DDDDDD {
+      package Bootloader #DDDDDD {
+      }
+      package RequestEnvironment #DDDDDD {
+      }
+    }
+    package ServiceManager #DDDDDD {
+    }
+    package Protocol #DDDDDD {
+      package Http #DDDDDD {
+        package Exceptions #DDDDDD {
+        }
+      }
+      package Exceptions #DDDDDD {
+      }
+    }
+    package Async #DDDDDD {
+    }
+    package Exceptions #DDDDDD {
+    }
+    package DI #DDDDDD {
+      package Exceptions #DDDDDD {
+      }
+    }
+    package DesignPatterns #DDDDDD {
+      package ExecutionPlan #DDDDDD {
+      }
+      package Handler #DDDDDD {
+      }
+    }
+  }
+  package Psr #DDDDDD {
+    package Log #DDDDDD {
+    }
+  }
+  package Symfony #DDDDDD {
+    package Component #DDDDDD {
+      package Routing #DDDDDD {
+        package Matcher #DDDDDD {
+          package Dumper #DDDDDD {
+          }
+        }
+      }
+    }
+  }
+  RestApi --> NativeSerialization
+  RestApi --> Bootloader
+  RestApi --> ServiceManager
+  RestApi --> RequestEnvironment
+  RestApi --> Protocol
+  RestApi --> Http
+  RestApi --> TypeDefinitions
+  RestApi --> Log
+  RestApi --> Async
+  RestApi --> Value
+  RestApi --> DI
+  RestApi --> RestApi
+  RestApi --> Dumper
+  RestApi --> Routing
+  RestApi --> ExecutionPlan
+  RestApi --> Handler
+  RestApi --> Matcher
+@enduml
