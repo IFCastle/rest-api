@@ -8,6 +8,7 @@ use IfCastle\ServiceManager\CommandDescriptorInterface;
 
 class RouterTest extends TestCase
 {
+    #[\PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations]
     public function testRouter(): void
     {
         $requestEnvironment         = $this->buildRequestEnvironment('/base/some-method/some-string');

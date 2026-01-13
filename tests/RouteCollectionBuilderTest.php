@@ -9,6 +9,7 @@ use Symfony\Component\Routing\RequestContext;
 
 class RouteCollectionBuilderTest extends TestCase
 {
+    #[\PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations]
     public function testRouter(): void
     {
         $systemEnvironment          = $this->buildSystemEnvironment();

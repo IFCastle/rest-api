@@ -75,25 +75,25 @@ class RouteCollectionBuilder
         FunctionDescriptorInterface $methodDescriptor,
         string $serviceName
     ): Route {
-        $path                       = $routeAttribute->getPath();
-        $defaults                   = $routeAttribute->getDefaults();
-        $requirements               = $routeAttribute->getRequirements();
-        $options                    = $routeAttribute->getOptions();
-        $host                       = $routeAttribute->getHost();
-        $schemes                    = $routeAttribute->getSchemes();
-        $methods                    = $routeAttribute->getMethods();
-        $condition                  = $routeAttribute->getCondition();
+        $path                       = $routeAttribute->path;
+        $defaults                   = $routeAttribute->defaults;
+        $requirements               = $routeAttribute->requirements;
+        $options                    = $routeAttribute->options;
+        $host                       = $routeAttribute->host;
+        $schemes                    = $routeAttribute->schemes;
+        $methods                    = $routeAttribute->methods;
+        $condition                  = $routeAttribute->condition;
 
         // Inherit group route attributes
         if ($groupRoute instanceof RouteAttribute) {
-            $path                   = $groupRoute->getPath() . $path;
-            $defaults               = \array_merge($groupRoute->getDefaults(), $defaults);
-            $requirements           = \array_merge($groupRoute->getRequirements(), $requirements);
-            $options                = \array_merge($groupRoute->getOptions(), $options);
-            $host                   = $groupRoute->getHost() ?? $host;
-            $schemes                = $groupRoute->getSchemes() !== [] ? $groupRoute->getSchemes() : $schemes;
-            $methods                = $groupRoute->getMethods() !== [] ? $groupRoute->getMethods() : $methods;
-            $condition              = $groupRoute->getCondition() ?? $condition;
+            $path                   = $groupRoute->path . $path;
+            $defaults               = \array_merge($groupRoute->defaults, $defaults);
+            $requirements           = \array_merge($groupRoute->requirements, $requirements);
+            $options                = \array_merge($groupRoute->options, $options);
+            $host                   = $groupRoute->host ?? $host;
+            $schemes                = $groupRoute->schemes !== [] ? $groupRoute->schemes : $schemes;
+            $methods                = $groupRoute->methods !== [] ? $groupRoute->methods : $methods;
+            $condition              = $groupRoute->condition ?? $condition;
         }
 
         $route                      = new Route(

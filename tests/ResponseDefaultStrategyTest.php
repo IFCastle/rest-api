@@ -10,6 +10,7 @@ use IfCastle\TypeDefinitions\Value\ValueJson;
 
 class ResponseDefaultStrategyTest extends TestCase
 {
+    #[\PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations]
     public function testResponseSuccess(): void
     {
         $requestEnvironment         = $this->buildRequestEnvironment('/base/some-method/some-string');
@@ -28,6 +29,7 @@ class ResponseDefaultStrategyTest extends TestCase
         $this->assertEquals('{"id":"some-id","name":"some-name"}', $response->getBody(), 'Body is not equal to {"id":"some-id","name":"some-name"}');
     }
 
+    #[\PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations]
     public function testResponseError(): void
     {
         $requestEnvironment         = $this->buildRequestEnvironment('/base/some-method/some-string');
