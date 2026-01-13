@@ -44,7 +44,7 @@ class ResponseDefaultStrategy
         $response                   = $requestEnvironment->getResponseFactory()->createResponse();
 
         if (false === $response instanceof HttpResponseMutableInterface) {
-            throw (new UnexpectedValueType('$response', $response, HttpResponseMutableInterface::class))->markAsFatal();
+            throw new UnexpectedValueType('$response', $response, HttpResponseMutableInterface::class)->markAsFatal();
         }
 
         if ($result instanceof \Throwable) {
@@ -110,12 +110,12 @@ class ResponseDefaultStrategy
             return $result;
         }
 
-        throw (new HttpException([
+        throw new HttpException([
             'template'      => 'Response has not allowed type. Got: {type}. Expected: {expected}',
             'code'          => 500,
             'type'          => \get_debug_type($result),
             'expected'      => 'ResultInterface|ContainerSerializableInterface|ArraySerializableInterface|ReadableStreamInterface',
-        ]))->markAsFatal();
+        ])->markAsFatal();
 
     }
 

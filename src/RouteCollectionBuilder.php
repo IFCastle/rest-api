@@ -34,7 +34,7 @@ class RouteCollectionBuilder
 
     protected function compile(RouteCollection $routeCollection): CompiledRouteCollection
     {
-        return new CompiledRouteCollection((new CompiledUrlMatcherDumper($routeCollection))->getCompiledRoutes());
+        return new CompiledRouteCollection(new CompiledUrlMatcherDumper($routeCollection)->getCompiledRoutes());
     }
 
     protected function buildRouteCollection(ServiceLocatorInterface $serviceLocator): RouteCollection

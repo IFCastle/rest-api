@@ -49,7 +49,7 @@ class Router implements RouterInterface
             $this->buildRouteCollection($requestEnvironment);
         }
 
-        $attributes                 = (new CompiledUrlMatcher($this->routeCollection->collection, $this->defineRequestContext($httpRequest)))
+        $attributes                 = new CompiledUrlMatcher($this->routeCollection->collection, $this->defineRequestContext($httpRequest))
             ->match($httpRequest->getUri()->getPath());
 
         if (empty($attributes['_service']) || empty($attributes['_method'])) {
@@ -184,8 +184,8 @@ class Router implements RouterInterface
             // Apply interceptors if exists
             //
             if ($this->interceptors !== []) {
-                $result             = (new InterceptorPipeline(
-                    $this, [$parameter, $methodDescriptor, $parameters, $attributes, $requestEnvironment], ...$this->interceptors)
+                $result             = new InterceptorPipeline(
+                    $this, [$parameter, $methodDescriptor, $parameters, $attributes, $requestEnvironment], ...$this->interceptors
                 )->getResult();
 
                 if ($result !== null) {
