@@ -36,6 +36,8 @@ class Router implements RouterInterface
      */
     public const string ALLOWED_METHODS = 'allowedMethods';
 
+    private const array FORM_MEDIA_TYPES = [HeadersInterface::MIME_FORM_URLENCODED, HeadersInterface::MIME_MULTIPART_FORM_DATA];
+
     protected CompiledRouteCollection|null $routeCollection = null;
 
     /**
@@ -211,7 +213,7 @@ class Router implements RouterInterface
                 ]);
             }
 
-            if (\in_array($contentType, [HeadersInterface::MIME_FORM_URLENCODED, HeadersInterface::MIME_MULTIPART_FORM_DATA], true)) {
+            if (\in_array($contentType, self::FORM_MEDIA_TYPES, true)) {
                 // Parse form data
                 $parameters         = $this->parseParameters($httpRequest);
             } else {
@@ -297,7 +299,7 @@ class Router implements RouterInterface
 
         // A form comes before the size check: a server that parses a form may keep its parts
         // rather than its bytes, and then reports no raw body at all.
-        if (\in_array($contentType, [HeadersInterface::MIME_FORM_URLENCODED, HeadersInterface::MIME_MULTIPART_FORM_DATA], true)) {
+        if (\in_array($contentType, self::FORM_MEDIA_TYPES, true)) {
 
             $form                   = $httpRequest->retrieveRequestForm();
 
