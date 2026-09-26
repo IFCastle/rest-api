@@ -49,6 +49,39 @@ class HttpPipelineTest extends TestCase
         );
     }
 
+    public function testConcurrentRequestsFindTheirOwnRequestEnvironment(): void
+    {
+        // The probe runs after the service's delay, when the other requests have set theirs.
+        $responses                  = $this->pipeline->handleConcurrently(
+            TestHttpRequest::get('http://localhost/pipeline/echo/first/30'),
+            TestHttpRequest::get('http://localhost/pipeline/echo/second/10'),
+            TestHttpRequest::get('http://localhost/pipeline/echo/third/0'),
+        );
+
+        $this->assertSame(
+            [['/pipeline/echo/first/30'], ['/pipeline/echo/second/10'], ['/pipeline/echo/third/0']],
+            \array_map(
+                static fn(HttpResponseInterface $response) => $response->getHeader(RequestPathRecorder::FOUND_HEADER),
+                $responses
+            )
+        );
+    }
+
+    public function testServiceParameterIsInjectedFromTheRequestEnvironment(): void
+    {
+        $response                   = $this->pipeline->handle(TestHttpRequest::get('http://localhost/pipeline/injected-path'));
+
+        $this->assertSame([], $this->pipeline->logRecords());
+        $this->assertSame('/pipeline/injected-path', \json_decode((string) $response->getBody()));
+    }
+
+    public function testOmittedNullableParameterTakesItsDefault(): void
+    {
+        $response                   = $this->pipeline->handle(TestHttpRequest::get('http://localhost/pipeline/limit'));
+
+        $this->assertSame('20', $response->getBody());
+    }
+
     public function testUnknownRouteAnswers404(): void
     {
         $response                   = $this->pipeline->handle(TestHttpRequest::get('http://localhost/pipeline/missing'));

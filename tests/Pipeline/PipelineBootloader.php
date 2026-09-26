@@ -10,8 +10,8 @@ use IfCastle\ServiceManager\RepositoryStorages\RepositoryReaderInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * Registers PipelineService as the only service of the test application and a CollectingLogger
- * as its logger.
+ * Registers PipelineService as the only service of the test application, a CollectingLogger as
+ * its logger, and RequestPathRecorder in its request plan.
  */
 final class PipelineBootloader implements BootloaderInterface, RepositoryReaderInterface
 {
@@ -30,6 +30,12 @@ final class PipelineBootloader implements BootloaderInterface, RepositoryReaderI
         $bootloaderExecutor->getBootloaderContext()->getSystemEnvironmentBootBuilder()
                            ->bindObject(RepositoryReaderInterface::class, $this)
                            ->bindObject(LoggerInterface::class, new CollectingLogger());
+
+        $recorder                   = new RequestPathRecorder();
+
+        $bootloaderExecutor->getBootloaderContext()->getRequestEnvironmentPlan()
+                           ->addBeforeHandleHandler($recorder->record(...))
+                           ->addAfterResponseHandler($recorder->probe(...));
     }
 
     #[\Override]

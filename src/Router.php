@@ -362,13 +362,10 @@ class Router implements RouterInterface
 
     protected function buildInterceptors(RequestEnvironmentInterface $requestEnvironment): void
     {
-        $this->interceptors      = [];
-
+        // Resolved into a local first: a concurrent request must see either null or the full list.
         $interceptors               = $requestEnvironment->getSystemEnvironment()->findDependency(InterceptorRegistryInterface::class)
                                                         ?->resolveInterceptors(ExtractParameterInterface::class);
 
-        if ($interceptors !== null) {
-            $this->interceptors  = $interceptors;
-        }
+        $this->interceptors         = $interceptors ?? [];
     }
 }

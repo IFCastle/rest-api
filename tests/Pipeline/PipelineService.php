@@ -7,6 +7,7 @@ namespace IfCastle\RestApi\Pipeline;
 use IfCastle\Exceptions\ClientException;
 use IfCastle\RestApi\Rest;
 use IfCastle\ServiceManager\AsServiceMethod;
+use IfCastle\TypeDefinitions\FromEnv;
 
 use function Async\delay;
 
@@ -30,6 +31,20 @@ final class PipelineService
         }
 
         return ['id' => $id];
+    }
+
+    #[AsServiceMethod]
+    #[Rest('/injected-path', methods: Rest::GET)]
+    public function injectedPath(#[FromEnv(key: RequestPathRecorder::KEY, fromRequestEnv: true)] string $path = ''): string
+    {
+        return $path;
+    }
+
+    #[AsServiceMethod]
+    #[Rest('/limit', methods: Rest::GET)]
+    public function limit(?int $limit = 20): int
+    {
+        return $limit ?? -1;
     }
 
     #[AsServiceMethod]
