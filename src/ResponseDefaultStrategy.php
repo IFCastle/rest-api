@@ -12,6 +12,7 @@ use IfCastle\Exceptions\UnexpectedValueType;
 use IfCastle\Protocol\ContentTypeAwareInterface;
 use IfCastle\Protocol\Exceptions\HttpErrorInterface;
 use IfCastle\Protocol\Exceptions\HttpException;
+use IfCastle\Protocol\Exceptions\MethodNotAllowed;
 use IfCastle\Protocol\HeadersInterface;
 use IfCastle\Protocol\Http\HttpResponseMutableInterface;
 use IfCastle\TypeDefinitions\NativeSerialization\ArraySerializableInterface;
@@ -58,10 +59,12 @@ class ResponseDefaultStrategy
 
     protected function buildResponseByResult(mixed $result, HttpResponseMutableInterface $response): void
     {
-        if ($result instanceof ContentTypeAwareInterface) {
-            $this->applyMimeType($response, $result->getContentType());
-        } else {
+        $isJson                     = false === $result instanceof ContentTypeAwareInterface;
+
+        if ($isJson) {
             $this->applyMimeType($response);
+        } else {
+            $this->applyMimeType($response, $result->getContentType());
         }
 
         $response->setStatusCode(200);
@@ -77,7 +80,8 @@ class ResponseDefaultStrategy
             return;
         }
 
-        if (\is_array($result)) {
+        // A scalar is a complete JSON document too: "hello" must reach the client quoted.
+        if (\is_array($result) || ($isJson && ($result === null || \is_scalar($result)))) {
             $result                 = $this->encodeResult($result);
         }
 
@@ -120,11 +124,11 @@ class ResponseDefaultStrategy
     }
 
     /**
-     * @param array<mixed> $result
+     * @param array<mixed>|scalar|null $result
      *
      * @throws \JsonException
      */
-    protected function encodeResult(array $result): string
+    protected function encodeResult(array|string|int|float|bool|null $result): string
     {
         return \json_encode($result, JSON_THROW_ON_ERROR);
     }
@@ -136,6 +140,11 @@ class ResponseDefaultStrategy
             $response->setReasonPhrase($error->getReasonPhrase() ?? self::SERVER_ERROR['message']);
         } else {
             $response->setStatusCode(500);
+        }
+
+        // RFC 9110: a 405 lists the methods the resource accepts.
+        if ($error instanceof MethodNotAllowed) {
+            $response->setHeader('Allow', \implode(', ', $error->getAdditionalData()[Router::ALLOWED_METHODS] ?? []));
         }
 
         if ($error instanceof ClientAvailableInterface) {
@@ -172,14 +181,18 @@ class ResponseDefaultStrategy
         }
     }
 
+    /**
+     * Sets Content-Type as one value: JSON in UTF-8 by default, or $mimeType with $charset when given.
+     */
     protected function applyMimeType(HttpResponseMutableInterface $response, ?string $mimeType = null, ?string $charset = null): void
     {
-        $response->setHeader(HeadersInterface::CONTENT_TYPE, $mimeType ?? HeadersInterface::MIME_APPLICATION_JSON);
-
-        if ($mimeType === null && $charset === null) {
-            $response->setHeader(HeadersInterface::CONTENT_TYPE, 'charset=utf-8');
-        } elseif ($charset !== null) {
-            $response->setHeader(HeadersInterface::CONTENT_TYPE, 'charset=' . $charset);
+        if ($mimeType === null) {
+            $mimeType               = HeadersInterface::MIME_APPLICATION_JSON;
+            $charset              ??= 'utf-8';
         }
+
+        $response->setHeader(
+            HeadersInterface::CONTENT_TYPE, $charset === null ? $mimeType : $mimeType . '; charset=' . $charset
+        );
     }
 }

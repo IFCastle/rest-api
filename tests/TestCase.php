@@ -62,6 +62,7 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
 
         $httpRequest->method('getHeader')->with(HeadersInterface::CONTENT_TYPE)->willReturn([$contentType]);
         $httpRequest->method('getBody')->willReturn($body);
+        $httpRequest->method('getBodySize')->willReturn(\strlen($body));
 
 
         $env                        = new RequestEnvironment($httpRequest, parentContainer: $systemEnvironment);

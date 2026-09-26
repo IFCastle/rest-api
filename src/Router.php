@@ -12,6 +12,9 @@ use IfCastle\DesignPatterns\Interceptor\InterceptorPipeline;
 use IfCastle\DesignPatterns\Interceptor\InterceptorRegistryInterface;
 use IfCastle\DI\Exceptions\DependencyNotFound;
 use IfCastle\Exceptions\UnexpectedValueType;
+use IfCastle\Protocol\Exceptions\BadRequest;
+use IfCastle\Protocol\Exceptions\MethodNotAllowed;
+use IfCastle\Protocol\Exceptions\NotFound;
 use IfCastle\Protocol\Exceptions\ParseException;
 use IfCastle\Protocol\HeadersInterface;
 use IfCastle\Protocol\Http\HttpRequestForm;
@@ -21,11 +24,18 @@ use IfCastle\ServiceManager\ServiceLocatorInterface;
 use IfCastle\TypeDefinitions\FromEnv;
 use IfCastle\TypeDefinitions\FunctionDescriptorInterface;
 use Psr\Http\Message\UriInterface;
+use Symfony\Component\Routing\Exception\MethodNotAllowedException;
+use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 use Symfony\Component\Routing\Matcher\CompiledUrlMatcher;
 use Symfony\Component\Routing\RequestContext;
 
 class Router implements RouterInterface
 {
+    /**
+     * The key of MethodNotAllowed additional data that lists the methods the route accepts.
+     */
+    public const string ALLOWED_METHODS = 'allowedMethods';
+
     protected CompiledRouteCollection|null $routeCollection = null;
 
     /**
@@ -49,8 +59,20 @@ class Router implements RouterInterface
             $this->buildRouteCollection($requestEnvironment);
         }
 
-        $attributes                 = new CompiledUrlMatcher($this->routeCollection->collection, $this->defineRequestContext($httpRequest))
-            ->match($httpRequest->getUri()->getPath());
+        $matcher                    = new CompiledUrlMatcher(
+            $this->routeCollection->collection, $this->defineRequestContext($httpRequest)
+        );
+
+        try {
+            $attributes             = $matcher->match($httpRequest->getUri()->getPath());
+        } catch (ResourceNotFoundException $exception) {
+            throw new NotFound(previous: $exception);
+        } catch (MethodNotAllowedException $exception) {
+            // ResponseDefaultStrategy turns ALLOWED_METHODS into the Allow header.
+            throw new MethodNotAllowed(
+                additionalData: [self::ALLOWED_METHODS => $exception->getAllowedMethods()], previous: $exception
+            );
+        }
 
         if (empty($attributes['_service']) || empty($attributes['_method'])) {
             return null;
@@ -59,7 +81,9 @@ class Router implements RouterInterface
         $requestEnvironment->set(CommandDescriptorInterface::class, new CommandDescriptor(
             serviceName: $attributes['_service'],
             methodName: $attributes['_method'],
-            extractParameters: new WeakStaticHandler(static fn(self $self) => $self->extractParameters($requestEnvironment, $attributes), $this)
+            extractParameters: new WeakStaticHandler(
+                static fn(self $self) => $self->extractRequestParameters($requestEnvironment, $attributes), $this
+            )
         ));
 
         return new StagePointer(breakCurrent: true);
@@ -100,6 +124,23 @@ class Router implements RouterInterface
         }
 
         return $uri->getScheme() === 'https' ? $context->setHttpsPort($port) : $context->setHttpPort($port);
+    }
+
+    /**
+     * @param array<string, mixed> $attributes
+     * @return array<string, mixed>
+     *
+     * @throws BadRequest when the request cannot be parsed
+     * @throws DependencyNotFound
+     * @throws UnexpectedValueType
+     */
+    protected function extractRequestParameters(RequestEnvironmentInterface $requestEnvironment, array $attributes): array
+    {
+        try {
+            return $this->extractParameters($requestEnvironment, $attributes);
+        } catch (ParseException $exception) {
+            throw new BadRequest(detail: $exception->getMessage(), previous: $exception);
+        }
     }
 
     /**
@@ -157,22 +198,20 @@ class Router implements RouterInterface
             return [$requestParameter => $httpRequest];
         }
 
-        $contentType                = $httpRequest->getHeader(HeadersInterface::CONTENT_TYPE)[0] ?? '';
+        $contentType                = $this->mediaType($httpRequest);
 
         if ($requestBody instanceof RequestBody) {
             // validate content type
             if ($requestBody->mimeTypes !== []
                && false === \in_array($contentType, $requestBody->mimeTypes, true)) {
                 throw new ParseException([
-                    'template'      => 'Invalid content type "{contentType}" for {service}->{method}. Expected: {expected}',
+                    'template'      => 'Invalid content type "{contentType}". Expected: {expected}',
                     'contentType'   => $httpRequest->getHeader(HeadersInterface::CONTENT_TYPE)[0] ?? '',
-                    'service'       => $serviceName,
-                    'method'        => $methodName,
                     'expected'      => \implode(', ', $requestBody->mimeTypes),
                 ]);
             }
 
-            if (\in_array($contentType, ['application/x-www-form-urlencoded', 'multipart/form-data'], true)) {
+            if (\in_array($contentType, [HeadersInterface::MIME_FORM_URLENCODED, HeadersInterface::MIME_MULTIPART_FORM_DATA], true)) {
                 // Parse form data
                 $parameters         = $this->parseParameters($httpRequest);
             } else {
@@ -254,9 +293,14 @@ class Router implements RouterInterface
     protected function parseParameters(HttpRequestInterface $httpRequest): array
     {
         // Try to parse parameters from the request
-        $contentType                = $httpRequest->getHeader(HeadersInterface::CONTENT_TYPE)[0] ?? '';
+        $contentType                = $this->mediaType($httpRequest);
 
-        if ($contentType === 'application/json') {
+        // A request without a body carries no parameters in it, whatever it declares.
+        if ($httpRequest->getBodySize() === 0) {
+            return [];
+        }
+
+        if ($contentType === HeadersInterface::MIME_APPLICATION_JSON) {
 
             $body                   = $httpRequest->getBody();
 
@@ -264,16 +308,10 @@ class Router implements RouterInterface
                 return [];
             }
 
-            try {
-                $parameters         = \json_decode($body, true, 512, JSON_THROW_ON_ERROR);
-            } catch (\JsonException $exception) {
-                throw new ParseException('Failed to parse JSON request body', 0, $exception);
-            }
-
-            return $parameters;
+            return $this->decodeJsonObject($body, 'request body');
         }
 
-        if (\in_array($contentType, ['application/x-www-form-urlencoded', 'multipart/form-data', true])) {
+        if (\in_array($contentType, [HeadersInterface::MIME_FORM_URLENCODED, HeadersInterface::MIME_MULTIPART_FORM_DATA], true)) {
 
             $form                   = $httpRequest->retrieveRequestForm();
 
@@ -281,22 +319,45 @@ class Router implements RouterInterface
                 throw new ParseException('Failed to parse form data: no form data found');
             }
 
-            $json                   = $form->post['json'] ?? '';
-            $parameters             = [];
-
-            if ($json !== '') {
-                try {
-                    $parameters     = \json_decode((string) $json, true, 512, JSON_THROW_ON_ERROR);
-                } catch (\JsonException $exception) {
-                    throw new ParseException('Failed to parse JSON parameter', 0, $exception);
-                }
-            }
+            $json                   = (string) ($form->post['json'] ?? '');
+            $parameters             = $json === '' ? [] : $this->decodeJsonObject($json, 'form parameter "json"');
 
             // Mix files to json parameters
             return \array_merge($parameters, $form->files);
         }
 
         throw new ParseException('Failed to parse request parameters: unknown content type');
+    }
+
+    /**
+     * @return array<string, mixed>
+     *
+     * @throws ParseException when $json is not valid JSON or is not an object or array
+     */
+    protected function decodeJsonObject(string $json, string $source): array
+    {
+        try {
+            $parameters             = \json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $exception) {
+            throw new ParseException('Failed to parse JSON in the ' . $source, 0, $exception);
+        }
+
+        if (false === \is_array($parameters)) {
+            throw new ParseException('JSON in the ' . $source . ' must be an object');
+        }
+
+        return $parameters;
+    }
+
+    /**
+     * The media type of the request body without parameters, lower-cased:
+     * "multipart/form-data; boundary=x" yields "multipart/form-data"; no header yields "".
+     */
+    protected function mediaType(HttpRequestInterface $httpRequest): string
+    {
+        $contentType                = $httpRequest->getHeader(HeadersInterface::CONTENT_TYPE)[0] ?? '';
+
+        return \strtolower(\trim(\explode(';', $contentType, 2)[0]));
     }
 
     protected function buildInterceptors(RequestEnvironmentInterface $requestEnvironment): void

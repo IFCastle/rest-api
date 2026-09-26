@@ -6,18 +6,23 @@ namespace IfCastle\RestApi;
 
 use IfCastle\Application\Console\ConsoleLoggerInterface;
 use IfCastle\Application\RequestEnvironment\RequestEnvironmentInterface;
+use IfCastle\Protocol\Exceptions\HttpErrorInterface;
 use IfCastle\Protocol\HeadersInterface;
 use IfCastle\Protocol\Http\HttpResponseMutableInterface;
 use IfCastle\TypeDefinitions\ResultInterface;
 use Psr\Log\LoggerInterface;
 
+/**
+ * The FINALLY stage of rest-api: logs the request's error unless it carries an HTTP status below 500,
+ * and answers 500 when no earlier stage defined a response.
+ */
 class ErrorDefaultStrategy
 {
     public function __invoke(RequestEnvironmentInterface $requestEnvironment): void
     {
-        $response                   = $requestEnvironment->getResponse();
+        $this->logServerError($requestEnvironment);
 
-        if ($response !== null) {
+        if ($requestEnvironment->getResponse() !== null) {
             return;
         }
 
@@ -29,15 +34,24 @@ class ErrorDefaultStrategy
             $response->setBody(ResponseDefaultStrategy::SERVER_ERROR['message']);
             $requestEnvironment->defineResponse($response);
         }
+    }
 
+    private function logServerError(RequestEnvironmentInterface $requestEnvironment): void
+    {
         $resultContainer            = $requestEnvironment->findDependency(ResultInterface::class, returnThrowable: true);
 
-        if ($resultContainer instanceof ResultInterface && ($error = $resultContainer->getError()) !== null) {
-            $requestEnvironment->findDependency(LoggerInterface::class)?->error($error);
-            $requestEnvironment->findDependency(ConsoleLoggerInterface::class)?->error($error);
-        } elseif ($resultContainer instanceof \Throwable) {
-            $requestEnvironment->findDependency(LoggerInterface::class)?->error($resultContainer);
-            $requestEnvironment->findDependency(ConsoleLoggerInterface::class)?->error($resultContainer);
+        $error                      = match (true) {
+            $resultContainer instanceof ResultInterface => $resultContainer->getError(),
+            $resultContainer instanceof \Throwable       => $resultContainer,
+            default                                     => null,
+        };
+
+        // An error without an HTTP status is rendered as 500, so it is the server's fault too.
+        if ($error === null || ($error instanceof HttpErrorInterface && $error->getStatusCode() < 500)) {
+            return;
         }
+
+        $requestEnvironment->findDependency(LoggerInterface::class)?->error($error);
+        $requestEnvironment->findDependency(ConsoleLoggerInterface::class)?->error($error);
     }
 }

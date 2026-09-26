@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace IfCastle\RestApi\Pipeline;
 
+use IfCastle\Exceptions\ClientException;
 use IfCastle\RestApi\Rest;
 use IfCastle\ServiceManager\AsServiceMethod;
 
@@ -12,6 +13,8 @@ use function Async\delay;
 #[Rest('/pipeline')]
 final class PipelineService
 {
+    public const string FAILURE     = 'PipelineService::fail() failed on purpose';
+
     /**
      * Returns the id it was called with after waiting $delay milliseconds,
      * so concurrent calls suspend inside the pipeline and interleave.
@@ -27,5 +30,33 @@ final class PipelineService
         }
 
         return ['id' => $id];
+    }
+
+    #[AsServiceMethod]
+    #[Rest('/text/{value}', methods: Rest::GET)]
+    public function text(string $value): string
+    {
+        return $value;
+    }
+
+    #[AsServiceMethod]
+    #[Rest('/sum', methods: Rest::POST)]
+    public function sum(int $a, int $b): int
+    {
+        return $a + $b;
+    }
+
+    #[AsServiceMethod]
+    #[Rest('/fail-visibly', methods: Rest::GET)]
+    public function failVisibly(): string
+    {
+        throw new ClientException(self::FAILURE);
+    }
+
+    #[AsServiceMethod]
+    #[Rest('/fail', methods: Rest::GET)]
+    public function fail(): string
+    {
+        throw new \RuntimeException(self::FAILURE);
     }
 }
