@@ -84,14 +84,22 @@ class Router implements RouterInterface
     {
         $uri                        = $httpRequest->getUri();
 
-        return new RequestContext(
+        $context                    = new RequestContext(
             baseUrl: $uri->getPath(),
             method: $httpRequest->getMethod(),
             host: $uri->getHost(),
             scheme: $uri->getScheme(),
-            httpPort: $uri->getPort(),
             queryString: $uri->getQuery()
         );
+
+        // A PSR-7 URI reports the scheme's default port as null; RequestContext already holds it.
+        $port                       = $uri->getPort();
+
+        if ($port === null) {
+            return $context;
+        }
+
+        return $uri->getScheme() === 'https' ? $context->setHttpsPort($port) : $context->setHttpPort($port);
     }
 
     /**

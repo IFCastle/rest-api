@@ -8,22 +8,6 @@
         "rest",
         "api"
     ],
-    "extra": {
-        "ifcastle-installer": {
-            "package": {
-                "name": "rest_api",
-                "bootloaders": [
-                    "IfCastle\\RestApi\\Bootloader"
-                ],
-                "tags": [
-                    "rest_api"
-                ]
-            }
-        },
-        "branch-alias": {
-            "dev-main": "1.0.x-dev"
-        }
-    },
     "autoload": {
         "psr-4": {
             "IfCastle\\RestApi\\": "src/"
@@ -43,7 +27,8 @@
     "require-dev": {
         "phpunit/phpunit": "^11.3",
         "ifcastle/codestyle": "^0.1",
-        "phpstan/phpstan": "^1.12"
+        "phpstan/phpstan": "^1.12",
+        "ifcastle/trueasync-engine": "^0.1"
     },
     "extra": {
         "ifcastle-installer": {
