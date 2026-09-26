@@ -137,7 +137,8 @@ class ResponseDefaultStrategy
     {
         if ($error instanceof HttpErrorInterface) {
             $response->setStatusCode($error->getStatusCode());
-            $response->setReasonPhrase($error->getReasonPhrase() ?? self::SERVER_ERROR['message']);
+            // An empty phrase leaves the standard one for the status to the server.
+            $response->setReasonPhrase($error->getReasonPhrase() ?? '');
         } else {
             $response->setStatusCode(500);
         }

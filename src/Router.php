@@ -295,6 +295,23 @@ class Router implements RouterInterface
         // Try to parse parameters from the request
         $contentType                = $this->mediaType($httpRequest);
 
+        // A form comes before the size check: a server that parses a form may keep its parts
+        // rather than its bytes, and then reports no raw body at all.
+        if (\in_array($contentType, [HeadersInterface::MIME_FORM_URLENCODED, HeadersInterface::MIME_MULTIPART_FORM_DATA], true)) {
+
+            $form                   = $httpRequest->retrieveRequestForm();
+
+            if ($form === null) {
+                throw new ParseException('Failed to parse form data: no form data found');
+            }
+
+            $json                   = (string) ($form->post['json'] ?? '');
+            $parameters             = $json === '' ? [] : $this->decodeJsonObject($json, 'form parameter "json"');
+
+            // Mix files to json parameters
+            return \array_merge($parameters, $form->files);
+        }
+
         // A request without a body carries no parameters in it, whatever it declares.
         if ($httpRequest->getBodySize() === 0) {
             return [];
@@ -309,21 +326,6 @@ class Router implements RouterInterface
             }
 
             return $this->decodeJsonObject($body, 'request body');
-        }
-
-        if (\in_array($contentType, [HeadersInterface::MIME_FORM_URLENCODED, HeadersInterface::MIME_MULTIPART_FORM_DATA], true)) {
-
-            $form                   = $httpRequest->retrieveRequestForm();
-
-            if ($form === null) {
-                throw new ParseException('Failed to parse form data: no form data found');
-            }
-
-            $json                   = (string) ($form->post['json'] ?? '');
-            $parameters             = $json === '' ? [] : $this->decodeJsonObject($json, 'form parameter "json"');
-
-            // Mix files to json parameters
-            return \array_merge($parameters, $form->files);
         }
 
         throw new ParseException('Failed to parse request parameters: unknown content type');
