@@ -224,6 +224,10 @@ class Router implements RouterInterface
             $parameters             = $this->parseParameters($httpRequest);
         }
 
+        // URL parameters also apply to bodyless requests. Body values override URL values;
+        // the route attributes retain precedence during argument normalization below.
+        $parameters                 = \array_replace($httpRequest->getRequestParameters(), $parameters);
+
         $normalizedParameters       = [];
 
         foreach ($methodDescriptor->getArguments() as $parameter) {

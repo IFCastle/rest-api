@@ -12,6 +12,8 @@ use IfCastle\Exceptions\UnexpectedValueType;
 use IfCastle\Protocol\ContentTypeAwareInterface;
 use IfCastle\Protocol\Exceptions\HttpErrorInterface;
 use IfCastle\Protocol\Exceptions\HttpException;
+use IfCastle\Protocol\Exceptions\BadRequest;
+use IfCastle\ServiceManager\Exceptions\InvalidParameter;
 use IfCastle\Protocol\Exceptions\MethodNotAllowed;
 use IfCastle\Protocol\HeadersInterface;
 use IfCastle\Protocol\Http\HttpResponseMutableInterface;
@@ -135,6 +137,10 @@ class ResponseDefaultStrategy
 
     protected function buildErrorResponse(\Throwable $error, HttpResponseMutableInterface $response): void
     {
+        if ($error instanceof InvalidParameter) {
+            $error = new BadRequest(detail: $error->getMessage(), previous: $error);
+        }
+
         if ($error instanceof HttpErrorInterface) {
             $response->setStatusCode($error->getStatusCode());
             // An empty phrase leaves the standard one for the status to the server.

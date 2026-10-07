@@ -29,6 +29,35 @@ class RouterTest extends TestCase
         $this->assertEquals(['id' => 'some-string'], $command->getParameters(), 'Parameters are not equal');
     }
 
+    #[\PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations]
+    public function testBodylessRequestUsesQueryParametersAndRouteValuesWin(): void
+    {
+        $environment = $this->buildRequestEnvironment('/base/method-with-integer-parameter/7');
+        $request = $environment->findDependency(HttpRequestInterface::class);
+        $request->method('getRequestParameters')->willReturn(['id' => '99', 'optionalParameter' => 'query']);
+        $router = new Router();
+        $router($environment);
+        $parameters = $environment->resolveDependency(CommandDescriptorInterface::class)->getParameters();
+        $this->assertSame('7', $parameters['id']);
+        $this->assertSame('query', $parameters['optionalParameter']);
+    }
+
+    #[\PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations]
+    public function testJsonBodyOverridesQueryAndRouteOverridesBoth(): void
+    {
+        $environment = $this->buildRequestEnvironment(
+            '/base/method-with-integer-parameter/7', 'GET', HeadersInterface::MIME_APPLICATION_JSON,
+            '{"id":"88","optionalParameter":"body"}'
+        );
+        $request = $environment->findDependency(HttpRequestInterface::class);
+        $request->method('getRequestParameters')->willReturn(['id' => '99', 'optionalParameter' => 'query']);
+        $router = new Router();
+        $router($environment);
+        $parameters = $environment->resolveDependency(CommandDescriptorInterface::class)->getParameters();
+        $this->assertSame('7', $parameters['id']);
+        $this->assertSame('body', $parameters['optionalParameter']);
+    }
+
     /**
      * A server that parses a form keeps its parts rather than its bytes, so the raw body is empty
      * and its size 0 (TrueAsync\HttpServer, or a chunked upload with no Content-Length).
