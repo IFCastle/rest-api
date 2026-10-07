@@ -20,8 +20,13 @@ final class Bootloader implements BootloaderInterface
                                                    ->addResponseHandler(new ResponseDefaultStrategy())
                                                    ->addFinallyHandler(new ErrorDefaultStrategy());
 
-        if ($bootloaderExecutor->getBootloaderContext()->isWarmUpEnabled()) {
-            $bootloaderExecutor->addWarmUpOperation(new RouteCollectionBuilder());
+        $context                    = $bootloaderExecutor->getBootloaderContext();
+        if ($context->isWarmUpEnabled()) {
+            $bootloaderExecutor->addWarmUpOperation(static function () use ($context): void {
+                $environment        = $context->getSystemEnvironment()
+                    ?? throw new \LogicException('Route warm-up requires the system environment');
+                new RouteCollectionBuilder()($environment);
+            });
         }
 
         $bootloaderExecutor->getBootloaderContext()->getSystemEnvironmentBootBuilder()
