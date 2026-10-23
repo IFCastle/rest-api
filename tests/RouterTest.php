@@ -83,6 +83,29 @@ class RouterTest extends TestCase
     }
 
     #[\PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations]
+    public function testJsonFormFieldWinsOverAPlainFieldOfTheSameName(): void
+    {
+        $requestEnvironment         = $this->buildRequestEnvironment(
+            '/base/method-with-uuid/0b8f3c1e-2d4a-4f6b-9c7d-1e2f3a4b5c6d',
+            'GET',
+            HeadersInterface::MIME_FORM_URLENCODED
+        );
+
+        $httpRequest                = $requestEnvironment->findDependency(HttpRequestInterface::class);
+        $httpRequest->method('retrieveRequestForm')
+                    ->willReturn(new HttpRequestForm(post: [
+                        'extraParameter'    => 'plain',
+                        'json'              => '{"extraParameter":"from json"}',
+                    ]));
+
+        $router                     = new Router();
+        $router($requestEnvironment);
+        $parameters                 = $requestEnvironment->findDependency(CommandDescriptorInterface::class)->getParameters();
+
+        $this->assertSame('from json', $parameters['extraParameter'] ?? null);
+    }
+
+    #[\PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations]
     public function testUnknownContentTypeIsRejected(): void
     {
         $requestEnvironment         = $this->buildRequestEnvironment(

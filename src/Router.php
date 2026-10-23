@@ -311,11 +311,17 @@ class Router implements RouterInterface
                 throw new ParseException('Failed to parse form data: no form data found');
             }
 
-            $json                   = (string) ($form->post['json'] ?? '');
-            $parameters             = $json === '' ? [] : $this->decodeJsonObject($json, 'form parameter "json"');
+            // Every field is a parameter. The "json" field carries an object whose keys win over
+            // the plain fields, and files win over both.
+            $parameters             = $form->post;
+            $json                   = (string) ($parameters['json'] ?? '');
+            unset($parameters['json']);
 
-            // Mix files to json parameters
-            return \array_merge($parameters, $form->files);
+            if ($json !== '') {
+                $parameters         = \array_replace($parameters, $this->decodeJsonObject($json, 'form parameter "json"'));
+            }
+
+            return \array_replace($parameters, $form->files);
         }
 
         // A request without a body carries no parameters in it, whatever it declares.
