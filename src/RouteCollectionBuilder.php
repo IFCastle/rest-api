@@ -59,8 +59,10 @@ class RouteCollectionBuilder
                 }
 
                 try {
+                    // Named by service and method: a method name alone would let a second service's method of
+                    // the same name replace the first one's route without a word.
                     $routeCollection->add(
-                        $methodDescriptor->getName(),
+                        $serviceName . '.' . $methodDescriptor->getName(),
                         $this->defineRoute($routeAttribute, $groupRoute, $methodDescriptor, $serviceName)
                     );
                 } catch (\Throwable $throwable) {

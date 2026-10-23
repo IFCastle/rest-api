@@ -28,7 +28,7 @@ class RouteCollectionBuilderTest extends TestCase
 
         $this->assertIsArray($result, 'Route not found');
         $this->assertArrayHasKey('_route', $result, 'Route not found');
-        $this->assertEquals('someMethod', $result['_route'], 'Route not found');
+        $this->assertEquals('someService.someMethod', $result['_route'], 'Route not found');
         $this->assertArrayHasKey('id', $result, 'Parameter id is not found');
         $this->assertEquals('some-string', $result['id'], 'Parameter id is not equal to some-string');
 
@@ -43,7 +43,7 @@ class RouteCollectionBuilderTest extends TestCase
 
         $this->assertIsArray($result, 'Route not found');
         $this->assertArrayHasKey('_route', $result, 'Route not found');
-        $this->assertEquals('methodWithUuid', $result['_route'], 'Route not found');
+        $this->assertEquals('someService.methodWithUuid', $result['_route'], 'Route not found');
         $this->assertArrayHasKey('uuid', $result, 'Parameter uuid is not found');
         $this->assertEquals('123e4567-e89b-12d3-a456-426614174000', $result['uuid'], 'Parameter uuid is not equal to 123e4567-e89b-12d3-a456-426614174000');
     }
@@ -64,5 +64,24 @@ class RouteCollectionBuilderTest extends TestCase
         }
 
         $this->assertNull($systemEnvironment->findDependency(CompiledRouteCollection::class));
+    }
+
+    #[\PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations]
+    public function testTwoServicesKeepTheirRoutesForMethodsOfOneName(): void
+    {
+        $systemEnvironment          = $this->buildSystemEnvironment([
+            'someService'           => SomeService::class,
+            'otherService'          => SameMethodNameService::class,
+        ]);
+        $this->systemEnvironment    = $systemEnvironment;
+        new RouteCollectionBuilder()($systemEnvironment);
+        $compiledRouteCollection    = $systemEnvironment->findDependency(CompiledRouteCollection::class);
+        $compiledUrlMatcher         = new CompiledUrlMatcher($compiledRouteCollection->collection, new RequestContext());
+
+        $first                      = $compiledUrlMatcher->match('/base/some-method/some-string');
+        $second                     = $compiledUrlMatcher->match('/other/some-method/some-string');
+
+        $this->assertSame(['someService', 'someMethod'], [$first['_service'], $first['_method']]);
+        $this->assertSame(['otherService', 'someMethod'], [$second['_service'], $second['_method']]);
     }
 }

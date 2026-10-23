@@ -73,16 +73,23 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
         return $env;
     }
 
-    protected function buildSystemEnvironment(string $serviceClass = SomeService::class): SystemEnvironmentInterface
+    /**
+     * @param string|array<string, string> $serviceClasses one service class, registered as someService, or classes by
+     *     service name
+     */
+    protected function buildSystemEnvironment(string|array $serviceClasses = SomeService::class): SystemEnvironmentInterface
     {
-        $serviceConfig              = [
-            'class'                 => $serviceClass,
-            'isActive'              => true,
-        ];
+        $serviceClasses             = \is_array($serviceClasses) ? $serviceClasses : ['someService' => $serviceClasses];
+        $serviceConfigs             = \array_map(
+            static fn(string $class): array => ['class' => $class, 'isActive' => true],
+            $serviceClasses
+        );
 
         $repositoryReader           = $this->createMock(RepositoryReaderInterface::class);
-        $repositoryReader->method('getServicesConfig')->willReturn(['someService' => $serviceConfig]);
-        $repositoryReader->method('findServiceConfig')->willReturn($serviceConfig);
+        $repositoryReader->method('getServicesConfig')->willReturn($serviceConfigs);
+        $repositoryReader->method('findServiceConfig')->willReturnCallback(
+            static fn(string $serviceName): ?array => $serviceConfigs[$serviceName] ?? null
+        );
 
         $container                  = [];
         $descriptorRepository       = new DescriptorRepository(
