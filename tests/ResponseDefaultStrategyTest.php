@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace IfCastle\RestApi;
 
 use IfCastle\Protocol\Exceptions\HttpException;
+use IfCastle\Protocol\Exceptions\ServiceUnavailable;
 use IfCastle\TypeDefinitions\Result;
 use IfCastle\TypeDefinitions\ResultInterface;
 use IfCastle\TypeDefinitions\Value\ValueJson;
@@ -87,5 +88,33 @@ class ResponseDefaultStrategyTest extends TestCase
 
         $this->assertSame(404, $response?->getStatusCode());
         $this->assertSame('', $response->getReasonPhrase());
+    }
+
+    /** @return array<string, array{\Throwable, int, list<string>}> an error, its status and its Retry-After values */
+    public static function retryDelays(): array
+    {
+        return [
+            'a 503 with a retry delay'      => [new ServiceUnavailable(retryAfter: 3), 503, ['3']],
+            'a 503 without a retry delay'   => [new ServiceUnavailable(), 503, []],
+            'not a 503'                     => [new \Exception('Some error'), 500, []],
+        ];
+    }
+
+    /** @param list<string> $retryAfterHeader */
+    #[\PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations]
+    #[\PHPUnit\Framework\Attributes\DataProvider('retryDelays')]
+    public function testServiceUnavailableNamesItsRetryDelayInAHeader(
+        \Throwable $error,
+        int $status,
+        array $retryAfterHeader
+    ): void {
+        $requestEnvironment         = $this->buildRequestEnvironment('/base/some-method/some-string');
+        $requestEnvironment->set(ResultInterface::class, new Result(error: $error));
+
+        new ResponseDefaultStrategy()($requestEnvironment);
+
+        $response                   = $requestEnvironment->getResponse();
+        $this->assertSame($status, $response?->getStatusCode());
+        $this->assertSame($retryAfterHeader, $response->getHeader('Retry-After'));
     }
 }

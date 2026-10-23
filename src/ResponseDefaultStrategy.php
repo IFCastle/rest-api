@@ -13,6 +13,7 @@ use IfCastle\Protocol\ContentTypeAwareInterface;
 use IfCastle\Protocol\Exceptions\HttpErrorInterface;
 use IfCastle\Protocol\Exceptions\HttpException;
 use IfCastle\Protocol\Exceptions\MethodNotAllowed;
+use IfCastle\Protocol\Exceptions\ServiceUnavailable;
 use IfCastle\Protocol\HeadersInterface;
 use IfCastle\Protocol\Http\HttpResponseMutableInterface;
 use IfCastle\TypeDefinitions\NativeSerialization\ArraySerializableInterface;
@@ -146,6 +147,11 @@ class ResponseDefaultStrategy
         // RFC 9110: a 405 lists the methods the resource accepts.
         if ($error instanceof MethodNotAllowed) {
             $response->setHeader('Allow', \implode(', ', $error->getAdditionalData()[Router::ALLOWED_METHODS] ?? []));
+        }
+
+        // RFC 9110: a 503 with a known delay names it in Retry-After, in seconds.
+        if ($error instanceof ServiceUnavailable && $error->getRetryAfter() > 0) {
+            $response->setHeader('Retry-After', (string) $error->getRetryAfter());
         }
 
         if ($error instanceof ClientAvailableInterface) {
