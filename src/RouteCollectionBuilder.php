@@ -45,42 +45,55 @@ class RouteCollectionBuilder
         $routeCollection            = new RouteCollection();
 
         foreach ($serviceLocator->getServiceDescriptorList() as $serviceName => $serviceDescriptor) {
-            $methodName             = null;
-            $routePath              = '';
-
             try {
                 $groupRoute         = $serviceDescriptor->findAttribute(RouteAttribute::class);
+            } catch (\Throwable $throwable) {
+                throw $this->routeFailure($serviceName, '(service attributes)', '', $throwable);
+            }
 
-                foreach ($serviceDescriptor->getServiceMethods() as $methodDescriptor) {
-                    $methodName     = $methodDescriptor->getFunctionName();
-                    $routePath      = '';
-                    $routeAttribute = $methodDescriptor->findAttribute(RouteAttribute::class);
+            foreach ($serviceDescriptor->getServiceMethods() as $methodDescriptor) {
+                $routeAttribute     = $methodDescriptor->findAttribute(RouteAttribute::class);
 
-                    if ($routeAttribute instanceof RouteAttribute === false) {
-                        continue;
-                    }
+                if ($routeAttribute instanceof RouteAttribute === false) {
+                    continue;
+                }
 
-                    $routePath      = $routeAttribute->path;
-
+                try {
                     $routeCollection->add(
                         $methodDescriptor->getName(),
                         $this->defineRoute($routeAttribute, $groupRoute, $methodDescriptor, $serviceName)
                     );
+                } catch (\Throwable $throwable) {
+                    throw $this->routeFailure(
+                        $serviceName,
+                        $methodDescriptor->getFunctionName(),
+                        $routeAttribute->path,
+                        $throwable
+                    );
                 }
-
-            } catch (\Throwable $throwable) {
-                // A broken route stops the boot: skipping it would drop every route of the service unnoticed.
-                throw new LogicalException([
-                    'template'      => 'Failed to build the REST route {route} of {service}->{method}: {reason}',
-                    'service'       => $serviceName,
-                    'method'        => $methodName ?? '(service attributes)',
-                    'route'         => $routePath,
-                    'reason'        => $throwable->getMessage(),
-                ], 0, $throwable);
             }
         }
 
         return $routeCollection;
+    }
+
+    /**
+     * The error for a route that cannot be built. It stops the boot: a skipped route would leave the application
+     * serving without it, unnoticed.
+     */
+    protected function routeFailure(
+        string $serviceName,
+        string $methodName,
+        string $routePath,
+        \Throwable $throwable
+    ): LogicalException {
+        return new LogicalException([
+            'template'              => 'Failed to build the REST route {route} of {service}->{method}: {reason}',
+            'service'               => $serviceName,
+            'method'                => $methodName,
+            'route'                 => $routePath,
+            'reason'                => $throwable->getMessage(),
+        ], 0, $throwable);
     }
 
     /**
