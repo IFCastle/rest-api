@@ -8,7 +8,10 @@ use IfCastle\Application\RequestEnvironment\RequestEnvironmentInterface;
 use IfCastle\Async\ReadableStreamInterface;
 use IfCastle\DI\Exceptions\DependencyNotFound;
 use IfCastle\Exceptions\UnexpectedValueType;
+use IfCastle\Protocol\Exceptions\BadRequest;
 use IfCastle\ServiceManager\CommandDescriptorInterface;
+use IfCastle\ServiceManager\Exceptions\MissingParameter;
+use IfCastle\ServiceManager\Exceptions\ParameterException;
 use IfCastle\ServiceManager\ExecutorInterface;
 use IfCastle\ServiceManager\ServiceLocatorInterface;
 use IfCastle\TypeDefinitions\DefinitionInterface;
@@ -40,7 +43,7 @@ final class ServiceCallDefaultStrategy
         try {
             $result                 = $executor->executeCommand($commandDescriptor);
         } catch (\Throwable $exception) {
-            $requestEnvironment->set(ResultInterface::class, new Result(error: $exception));
+            $requestEnvironment->set(ResultInterface::class, new Result(error: $this->clientError($exception)));
             return;
         }
 
@@ -60,6 +63,21 @@ final class ServiceCallDefaultStrategy
         }
 
         $requestEnvironment->set(ResultInterface::class, new Result($result));
+    }
+
+    /**
+     * Arguments of the request that do not fit the method are the client's fault: 400 Bad Request, which names
+     * the parameter but not the service. Any other error stays as it is.
+     */
+    private function clientError(\Throwable $exception): \Throwable
+    {
+        return match (true) {
+            $exception instanceof MissingParameter   => new BadRequest(
+                detail: 'Parameter "' . $exception->parameter . '" is required', previous: $exception
+            ),
+            $exception instanceof ParameterException => new BadRequest(detail: $exception->getMessage(), previous: $exception),
+            default                                  => $exception,
+        };
     }
 
     private function extractReturnType(RequestEnvironmentInterface $requestEnvironment, CommandDescriptorInterface $commandDescriptor): DefinitionInterface
