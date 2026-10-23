@@ -125,4 +125,32 @@ class RouterTest extends TestCase
             $this->assertInstanceOf(ParseException::class, $exception->getPrevious());
         }
     }
+
+    /**
+     * TrueAsync\HttpServer always yields a form for a form media type, so only another server
+     * reaches this branch; the mock stands for it.
+     */
+    #[\PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations]
+    public function testFormMediaTypeWithoutAFormIsRejected(): void
+    {
+        $requestEnvironment         = $this->buildRequestEnvironment(
+            '/base/some-method/some-string', 'GET', HeadersInterface::MIME_FORM_URLENCODED, 'a=b'
+        );
+
+        $requestEnvironment->findDependency(HttpRequestInterface::class)
+                           ->method('retrieveRequestForm')->willReturn(null);
+
+        // CommandDescriptor holds the router weakly, so the router must outlive getParameters().
+        $router                     = new Router();
+        $router($requestEnvironment);
+        $command                    = $requestEnvironment->findDependency(CommandDescriptorInterface::class);
+
+        try {
+            $command->getParameters();
+            $this->fail('BadRequest was not thrown');
+        } catch (BadRequest $exception) {
+            $this->assertStringContainsString('no form data found', (string) $exception->getDetail());
+            $this->assertInstanceOf(ParseException::class, $exception->getPrevious());
+        }
+    }
 }

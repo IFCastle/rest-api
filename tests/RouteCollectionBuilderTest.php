@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace IfCastle\RestApi;
 
+use IfCastle\Exceptions\LogicalException;
 use Symfony\Component\Routing\Matcher\CompiledUrlMatcher;
 use Symfony\Component\Routing\RequestContext;
 
@@ -45,5 +46,23 @@ class RouteCollectionBuilderTest extends TestCase
         $this->assertEquals('methodWithUuid', $result['_route'], 'Route not found');
         $this->assertArrayHasKey('uuid', $result, 'Parameter uuid is not found');
         $this->assertEquals('123e4567-e89b-12d3-a456-426614174000', $result['uuid'], 'Parameter uuid is not equal to 123e4567-e89b-12d3-a456-426614174000');
+    }
+
+    #[\PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations]
+    public function testRouteParameterWithoutMethodArgumentFailsTheBoot(): void
+    {
+        $systemEnvironment          = $this->buildSystemEnvironment(BrokenRouteService::class);
+        $this->systemEnvironment    = $systemEnvironment;
+
+        try {
+            new RouteCollectionBuilder()($systemEnvironment);
+            $this->fail('LogicalException was not thrown');
+        } catch (LogicalException $exception) {
+            $this->assertStringContainsString("'someService'->'methodWithoutRouteArgument'", $exception->getMessage());
+            $this->assertStringContainsString("'/item/{id}'", $exception->getMessage());
+            $this->assertStringContainsString('id', (string) $exception->getPrevious()?->getMessage());
+        }
+
+        $this->assertNull($systemEnvironment->findDependency(CompiledRouteCollection::class));
     }
 }

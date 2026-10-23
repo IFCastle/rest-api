@@ -37,20 +37,30 @@ class RouteCollectionBuilder
         return new CompiledRouteCollection(new CompiledUrlMatcherDumper($routeCollection)->getCompiledRoutes());
     }
 
+    /**
+     * @throws LogicalException naming the service, method and route path of a route that cannot be built
+     */
     protected function buildRouteCollection(ServiceLocatorInterface $serviceLocator): RouteCollection
     {
         $routeCollection            = new RouteCollection();
 
         foreach ($serviceLocator->getServiceDescriptorList() as $serviceName => $serviceDescriptor) {
+            $methodName             = null;
+            $routePath              = '';
+
             try {
                 $groupRoute         = $serviceDescriptor->findAttribute(RouteAttribute::class);
 
                 foreach ($serviceDescriptor->getServiceMethods() as $methodDescriptor) {
+                    $methodName     = $methodDescriptor->getFunctionName();
+                    $routePath      = '';
                     $routeAttribute = $methodDescriptor->findAttribute(RouteAttribute::class);
 
                     if ($routeAttribute instanceof RouteAttribute === false) {
                         continue;
                     }
+
+                    $routePath      = $routeAttribute->path;
 
                     $routeCollection->add(
                         $methodDescriptor->getName(),
@@ -58,8 +68,15 @@ class RouteCollectionBuilder
                     );
                 }
 
-            } catch (\Throwable) {
-                // ignore
+            } catch (\Throwable $throwable) {
+                // A broken route stops the boot: skipping it would drop every route of the service unnoticed.
+                throw new LogicalException([
+                    'template'      => 'Failed to build the REST route {route} of {service}->{method}: {reason}',
+                    'service'       => $serviceName,
+                    'method'        => $methodName ?? '(service attributes)',
+                    'route'         => $routePath,
+                    'reason'        => $throwable->getMessage(),
+                ], 0, $throwable);
             }
         }
 

@@ -73,10 +73,10 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
         return $env;
     }
 
-    protected function buildSystemEnvironment(): SystemEnvironmentInterface
+    protected function buildSystemEnvironment(string $serviceClass = SomeService::class): SystemEnvironmentInterface
     {
         $serviceConfig              = [
-            'class'                 => SomeService::class,
+            'class'                 => $serviceClass,
             'isActive'              => true,
         ];
 

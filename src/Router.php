@@ -207,7 +207,7 @@ class Router implements RouterInterface
             if ($requestBody->mimeTypes !== []
                && false === \in_array($contentType, $requestBody->mimeTypes, true)) {
                 throw new ParseException([
-                    'template'      => 'Invalid content type "{contentType}". Expected: {expected}',
+                    'template'      => 'Invalid content type {contentType}. Expected: {expected}',
                     'contentType'   => $httpRequest->getHeader(HeadersInterface::CONTENT_TYPE)[0] ?? '',
                     'expected'      => \implode(', ', $requestBody->mimeTypes),
                 ]);
